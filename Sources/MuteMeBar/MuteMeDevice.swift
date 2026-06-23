@@ -50,12 +50,22 @@ final class MuteMeDevice {
     private var hidManager: IOHIDManager?
     private var openDevice: IOHIDDevice?
 
-    // Buffer for input reports — IOKit needs a pre-allocated buffer.
-    // MuteMe reports are 1 byte but we allocate a generous buffer.
-    private var reportBuffer = [UInt8](repeating: 0, count: 64)
+    // Buffer for input reports. IOKit retains this pointer for the entire
+    // lifetime of the input-report registration and writes into it on every
+    // report, so it MUST be stable memory we own — not a Swift Array's transient
+    // `inout` address. Allocated once, freed in deinit.
+    private static let reportBufferSize = 64
+    private let reportBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: reportBufferSize)
 
-    // Last report bytes seen — used to suppress duplicate verbose log entries.
-    private var lastReportBytes: [UInt8] = []
+    init() {
+        reportBuffer.initialize(repeating: 0, count: Self.reportBufferSize)
+    }
+
+    deinit {
+        stop()
+        reportBuffer.deinitialize(count: Self.reportBufferSize)
+        reportBuffer.deallocate()
+    }
 
     // MARK: - Start / stop
 
@@ -131,11 +141,12 @@ final class MuteMeDevice {
         openDevice = device
         onConnected?()
 
-        // reportBuffer must remain valid for the lifetime of the callback.
+        // reportBuffer is heap-allocated and owned by this instance, so it
+        // remains valid for the lifetime of the callback registration.
         IOHIDDeviceRegisterInputReportCallback(
             device,
-            &reportBuffer,
-            CFIndex(reportBuffer.count),
+            reportBuffer,
+            CFIndex(Self.reportBufferSize),
             inputReportCallback,
             Unmanaged.passUnretained(self).toOpaque()
         )

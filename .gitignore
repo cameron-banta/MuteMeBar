@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Build output (assembled .app bundle)
+build/
+
+# Code-signing material — never commit keys/certs
+*.p12
+*.pem
+*.key
+*.cer
+
+# Local logs / debug captures
+logs/
+*.log
+
+# Xcode (in case you open the package in Xcode)
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
